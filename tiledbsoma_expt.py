@@ -54,7 +54,6 @@ def create_tiledbsoma_expt(h5ad_path):
 
     tiledbsoma.io.from_anndata(
     experiment_uri=tiledbsoma_expt_path,
-    #xperiment_uri="tiledbsoma_expt",
     anndata=adata,
     measurement_name="RNA"
     )
