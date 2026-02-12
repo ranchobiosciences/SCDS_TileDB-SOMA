@@ -2,7 +2,6 @@
 
 
 """
-
 tiledbsoma_expt.py
 
 Script to generate TileDB-SOMA experiment for SCDS datasets under the given directory (datasets under the batch or individual datasets).
@@ -35,6 +34,29 @@ import utils
 
 
 def main():
+    """
+    Main function to generate TileDB-SOMA experiment(s) for SCDS datasets.
+
+    This script takes a directory path (either a batch-level directory containing multiple datasets,
+    or an individual dataset directory) as input, searches recursively for AnnData
+    annotated .h5ad files within that directory, and for each such file found,
+    creates a TileDB-SOMA experiment in the corresponding dataset directory.
+
+    - For each annotated.h5ad file found:
+        - The experiment will be created in a subdirectory called 'tiledbsoma_expt'
+          (or 'tiledbsoma_expt_2', etc. if name already exists) next to the h5ad file.
+        - The operation prints progress and the output experiment directory location to stdout.
+
+    Args:
+        None. Arguments are parsed from the command line. Use --help for usage.
+
+    Raises:
+        FileNotFoundError: If the given top-level directory does not exist or if
+        no annotated.h5ad file is found in the search path.
+
+    Example:
+        python tiledbsoma_expt.py /path/to/batch_or_dataset_dir/
+    """
     parser = argparse.ArgumentParser(description="Generate TileDB-SOMA experiment for the SCDS dataset.")
     parser.add_argument(
         "dir_path", 
