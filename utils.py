@@ -30,6 +30,7 @@ import tiledbsoma.io
 import scanpy as sc
 #import pandas as pd
 #import matplotlib.pyplot as plt
+from scipy.sparse import issparse
 
 
 def next_available_dir(path: Path) -> Path:
@@ -94,3 +95,80 @@ def create_tiledbsoma_expt(h5ad_path):
 
     return(tiledbsoma_expt_path)
 
+
+def extract_adata_schema(adata):
+    """
+    Extracts a comprehensive schema from the provided AnnData object including columns, keys and their data types.
+
+    Parameters
+    ----------
+    adata : AnnData
+
+    Returns
+    -------
+    dict
+        Dictionary containing schema information for X, obs, var, uns, obsm, varm, and obsp, 
+        including datatypes, number of dimensions, and keys for each attribute group.
+    """
+    return {
+        "schema": {
+            "X": {
+                "ndim": adata.X.ndim,
+                "dtype": str(adata.X.dtype),
+            },
+
+            "obs": {
+                "columns": {
+                    col: str(dtype)
+                    for col, dtype in adata.obs.dtypes.items()
+                }
+            },
+
+            "var": {
+                "columns": {
+                    col: str(dtype)
+                    for col, dtype in adata.var.dtypes.items()
+                }
+            },
+
+            "uns": {
+                "keys": {
+                    key: type(value).__name__
+                    for key, value in adata.uns.items()
+                }
+            },
+
+            "obsm": {
+                key: {
+                    "ndim": value.ndim,
+                    "dtype": str(value.dtype),
+                }
+                for key, value in adata.obsm.items()
+            },
+
+            "varm": {
+                key: {
+                    "ndim": value.ndim,
+                    "dtype": str(value.dtype),
+                }
+                for key, value in adata.varm.items()
+            },
+
+            "obsp": {
+                key: {
+                    "ndim": value.ndim,
+                    "dtype": str(value.dtype),
+                    "sparse": issparse(value),
+                }
+                for key, value in adata.obsp.items()
+            },
+
+            "layers": {
+                key: {
+                    "ndim": value.ndim,
+                    "dtype": str(value.dtype),
+                }
+                for key, value in adata.layers.items()
+            }
+        }
+    }
