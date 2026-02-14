@@ -5,6 +5,9 @@ compare_columns.py
 This script compares the `obs` columns from a reference dataset (provided as a JSON file)
 with those of a supplied annotated AnnData (.h5ad) file. It prints out column differences and
 writes the observed columns from the provided dataset into a JSON file for record-keeping.
+Columns json files from different datasets are stored at /SCDS_TileDB-SOMA/adata_columns_archive. 
+Default dataset used is /SCDS_TileDB-SOMA/adata_columns_archive/batch14_GSE76312. 
+If no other reference dataset is provided, it will be checked against this one and report the changes.
 
 Usage:
     python compare_columns.py path/to/ref_columns.json path/to/annotated.h5ad
