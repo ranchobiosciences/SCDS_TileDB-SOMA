@@ -1,5 +1,28 @@
 #!/usr/bin/env python3
 
+"""
+tiledbsoma_collection.py
+
+Script to add a TileDB-SOMA experiment to the appropriate collection based on organism and workflow.
+
+Usage:
+    python tiledbsoma_collection.py /path/to/tiledbsoma_expt
+
+Arguments:
+    expt_path: Path to the TileDB-SOMA experiment directory to add to a collection.
+
+Behavior:
+    - Opens the given TileDB-SOMA experiment and reads required metadata (donor organism, dataset workflow).
+    - Determines appropriate collection (Human_10x, Human_ss2, Mouse_10x, Mouse_ss2) from metadata 
+    (the collections are located at /wip/scds/delivery-zips/tiledbsoma_collections/).
+    - Adds or links the experiment to the determined collection in the default collections directory.
+
+Example:
+    python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/GSE76312/tiledbsoma_expt
+
+Author: Sinu Paul
+Created: 2026-02-05
+"""
 
 
 import argparse
