@@ -3,7 +3,7 @@
 """
 tiledbsoma_collection.py
 
-Script to add a TileDB-SOMA experiment to the appropriate collection based on organism and workflow.
+Script to add a TileDB-SOMA experiment to the appropriate collection based on donor organism and dataset workflow.
 
 Usage:
     python tiledbsoma_collection.py /path/to/tiledbsoma_expt

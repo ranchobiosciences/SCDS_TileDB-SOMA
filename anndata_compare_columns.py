@@ -5,19 +5,19 @@ compare_columns.py
 This script compares the `obs` columns from a reference dataset (provided as a JSON file)
 with those of a supplied annotated AnnData (.h5ad) file. It prints out column differences and
 writes the observed columns from the provided dataset into a JSON file for record-keeping.
-Columns json files from different datasets are stored at /SCDS_TileDB-SOMA/adata_columns_archive. 
-Default dataset used is /SCDS_TileDB-SOMA/adata_columns_archive/batch14_GSE76312. 
+Columns json files from different datasets are stored at /SCDS_TileDB-SOMA/anndata_columns_archive. 
+Default dataset used is /SCDS_TileDB-SOMA/anndata_columns_archive/batch14_GSE76312. 
 If no other reference dataset is provided, it will be checked against this one and report the changes.
 
 Usage:
-    python compare_columns.py path/to/ref_columns.json path/to/annotated.h5ad
+    python compare_columns.py [ref_dataset] <current_h5ad_path>
 
 Arguments:
-    ref_columns.json: Path to a JSON file containing the 'obs' columns for the reference dataset.
+    ref_dataset: batch-dataset combination to be used as the reference, separated by an underscore.
     annotated.h5ad: Path to the AnnData object (.h5ad) for the dataset to compare.
 
 Example:
-    python compare_columns.py columns_batch14_GSE76312.json /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad
+    python compare_columns.py batch14_GSE76312 /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad
 
 Output:
     - Indicates if obs columns match or differ, identifying missing or new columns.
@@ -75,7 +75,7 @@ def compare_and_save(ref_dataset_path, current_h5ad_path):
         if len(columns_absent) > 0:
             print("Columns absent in current dataset with respect to the reference:")
             for i in range(len(columns_absent)):
-                print(str(i+1)+'. '+ columns_new[i])
+                print(str(i+1)+'. '+ columns_absent[i])
         if len(columns_new) > 0:
             print("Columns new in current dataset with respect to the reference:")
             for i in range(len(columns_new)):
@@ -111,12 +111,12 @@ def main():
         current_h5ad_path: pathlib.Path
             Path to the AnnData `.h5ad` file to be compared.
 
-    This script will look for the reference JSON in: ./adata_columns_archive/columns_<ref_dataset>.json
+    This script will look for the reference JSON in: ./anndata_columns_archive/columns_<ref_dataset>.json
 
     Output:
         - Prints whether columns match or differ, listing differences if found.
         - Writes a JSON file containing the columns of the current AnnData object to
-          ./adata_columns_archive/columns_<batch>_<dataset>.json, where batch and dataset are inferred from the input file's path.
+          ./anndata_columns_archive/columns_<batch>_<dataset>.json, where batch and dataset are inferred from the input file's path.
 
     Example:
         python compare_columns.py batch14_GSE76312 //wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad
@@ -136,7 +136,7 @@ def main():
         )
     args = parser.parse_args()
     ref_dataset = Path("columns_"+args.ref_dataset+".json")
-    ref_dataset_path = Path(__file__).parent/"adata_columns_archive"/ref_dataset
+    ref_dataset_path = Path(__file__).parent/"anndata_columns_archive"/ref_dataset
     current_h5ad_path = args.current_h5ad_path
 
     print(f"Reference dataset: {ref_dataset_path}")
