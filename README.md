@@ -43,3 +43,25 @@ Behavior:
 Examples:
 - For adding one TileDB-SOMA experiment: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/GSE76312/tiledbsoma_expt`
 - For adding multiple TileDB-SOMA experiments under a batch: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/`
+
+## anndata_compare_columns.py
+This script compares the `obs` columns from a reference dataset (provided as a JSON file)
+with those of a supplied annotated AnnData (.h5ad) file. It prints out column differences and
+writes the observed columns from the provided dataset into a JSON file for record-keeping.
+Columns json files from different datasets are stored at /SCDS_TileDB-SOMA/anndata_columns_archive. 
+Default dataset used is /SCDS_TileDB-SOMA/anndata_columns_archive/batch14_GSE76312. 
+If no other reference dataset is provided, it will be checked against this one and report the changes.
+
+Usage:  
+`python compare_columns.py ref_dataset /path/to/h5ad`
+
+Arguments:  
+- ref_dataset: batch-dataset combination to be used as the reference, separated by an underscore e.g., batch14_GSE76312.
+- annotated.h5ad: Path to the AnnData object (.h5ad) for the dataset to compare.
+
+Example:  
+    `python compare_columns.py batch14_GSE76312 /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad`
+
+Output:  
+  - Indicates if obs columns match or differ, identifying missing or new columns.
+  - Writes a JSON file with columns from the compared dataset for record-keeping.
