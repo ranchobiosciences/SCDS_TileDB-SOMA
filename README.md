@@ -1,5 +1,5 @@
 # SCDS_TileDB-SOMA
-Scripts to create TileDB-SOMA experiment, collections etc for Single cell datasets
+Scripts to create TileDB-SOMA experiment, add experiments to collections etc. for Single cell datasets
 
 Use conda env `tiledbsoma` (`/opt/mamba/envs/tiledbsoma/`) on scds-c server:  
 `conda activate tiledbsoma`  
@@ -25,3 +25,21 @@ Output:
 - A TileDB-SOMA experiment directory in the dataset directory (e.g., `/wip/scds/delivery-zips/batch14/GSE76312/tiledbsoma_expt`)
     If the directory name already exists, it will use the next available directory path by appending an incrementing number as suffix 
     (e.g., `/wip/scds/delivery-zips/batch14/GSE76312/tiledbsoma_expt_2`).
+
+## tiledbsoma_collection.py
+Script to add TileDB-SOMA experiments to the appropriate collection based on donor organism and dataset workflow.
+
+Usage:
+`python tiledbsoma_collection.py /path/to/dir/`
+
+Arguments:
+- dir_path: Path to the directory with TileDB-SOMA experiments that needs to be added to the collection. It can be a batch dir or tiledbsoma_expt directory.  
+
+Behavior:  
+  - Opens the TileDB-SOMA experiment and reads required metadata (donor organism, dataset workflow).  
+  - Determines appropriate collection (`Human_10x`, `Human_ss2`, `Mouse_10x`, `Mouse_ss2`) from metadata (the collections are located at `/wip/scds/delivery-zips/tiledbsoma_collections/`).  
+  - Adds or links the experiment to the determined collection in the default collections directory.  
+
+Examples:
+- For adding one TileDB-SOMA experiment: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/GSE76312/tiledbsoma_expt`
+- For adding multiple TileDB-SOMA experiments under a batch: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/`
