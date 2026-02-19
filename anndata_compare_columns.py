@@ -128,12 +128,12 @@ def main():
         nargs='?',
         default='batch14_GSE76312',
         help="Name of the dataset against which the it needs to be checked e.g., batch14_GSE76312. Default is batch14_GSE76312."
-        )
+    )
     parser.add_argument(
         "current_h5ad_path", 
         type=Path, 
         help="Path to the dataset annotated.h5ad file for which the columns needs to be checked."
-        )
+    )
     args = parser.parse_args()
     ref_dataset = Path("columns_"+args.ref_dataset+".json")
     ref_dataset_path = Path(__file__).parent/"anndata_columns_archive"/ref_dataset

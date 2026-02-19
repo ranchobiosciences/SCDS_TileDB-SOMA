@@ -62,9 +62,9 @@ def create_tiledbsoma_expt(h5ad_path):
     tiledbsoma_expt_path = str(utils.next_available_dir(tiledbsoma_expt_path))
 
     tiledbsoma.io.from_anndata(
-    experiment_uri=tiledbsoma_expt_path,
-    anndata=adata,
-    measurement_name="RNA"
+        experiment_uri=tiledbsoma_expt_path,
+        anndata=adata,
+        measurement_name="RNA"
     )
 
     return(tiledbsoma_expt_path)
@@ -99,7 +99,7 @@ def main():
         "dir_path", 
         type=Path, 
         help="Path to the dataset directory that contains the AnnData annotated.h5ad file to be used for creating the TileDB-SOMA experiment"
-        )
+    )
     args = parser.parse_args()
     dir_path = args.dir_path
     print(f"Given directory path: {dir_path}")

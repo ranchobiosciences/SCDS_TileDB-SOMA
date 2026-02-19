@@ -38,7 +38,7 @@ def main():
         "dir_path", 
         type=Path, 
         help="Path to the directory with TileDB-SOMA experiments that needs to be added to the collection."
-        )
+    )
     args = parser.parse_args()
     dir_path = args.dir_path
     print(f"Given TileDB-SOMA experiments directory path: {dir_path}")
