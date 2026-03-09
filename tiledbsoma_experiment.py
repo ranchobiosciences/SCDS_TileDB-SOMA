@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-
 """
 tiledbsoma_experiment.py
 
@@ -30,9 +29,9 @@ Created: 2026-02-05
 
 import argparse
 from pathlib import Path
-import utils
 import scanpy as sc
 import tiledbsoma.io
+import utils
 
 
 def create_tiledbsoma_expt(h5ad_file_path):
