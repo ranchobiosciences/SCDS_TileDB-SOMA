@@ -31,7 +31,7 @@ import json
 from copy import deepcopy
 
 
-def compare_and_save(h5ad_file_path: Path):
+def Compare_obs_columns(h5ad_file_path: Path):
     """
     Compares the `obs` columns from supplied annotated AnnData (.h5ad) file against 
     the standard list of columns provided in file batch17_universal_obs_columns.txt.
@@ -97,7 +97,7 @@ def main():
         raise FileNotFoundError(f"Given dataset annotated.h5ad file not found: {h5ad_file_path}")
 
     
-    compare_and_save(h5ad_file_path)
+    Compare_obs_columns(h5ad_file_path)
 
 
 if __name__ == "__main__":
