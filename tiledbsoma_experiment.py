@@ -35,13 +35,13 @@ import scanpy as sc
 import tiledbsoma.io
 
 
-def create_tiledbsoma_expt(h5ad_path):
+def create_tiledbsoma_expt(h5ad_file_path):
     """
     Creates a TileDB-SOMA experiment from the provided AnnData (.h5ad) file.
 
     Parameters
     ----------
-    h5ad_path : Path
+    h5ad_file_path : Path
         Path to the AnnData annotated.h5ad file to be used for creating the TileDB-SOMA experiment.
 
     This function reads the annotated.h5ad AnnData file (e.g., /wip/scds/delivery-zips/batch14/GSE76312/deliverables_2025-05-16/Giustacchini_2017_Nat_Med-GSE76312-anndata-annotated.h5ad), 
@@ -49,14 +49,14 @@ def create_tiledbsoma_expt(h5ad_path):
     and converts the data into a TileDB-SOMA experiment, saving it in the dataset directory.
     """
 
-    adata = sc.read_h5ad(h5ad_path)
+    adata = sc.read_h5ad(h5ad_file_path)
 
-    dataset_path = h5ad_path.parent.parent
+    dataset_path = h5ad_file_path.parent.parent
     dataset = dataset_path.name
     batch_path = dataset_path.parent
     batch = batch_path.name
     print(f"\nBatch: {batch}, Dataset: {dataset}")
-    print(f" - annotated.h5ad file to be used: {h5ad_path}")
+    print(f" - annotated.h5ad file to be used: {h5ad_file_path}")
     tiledbsoma_expt_path = dataset_path/"tiledbsoma_expt"
 
     tiledbsoma_expt_path = str(utils.next_available_dir(tiledbsoma_expt_path))
@@ -107,15 +107,15 @@ def main():
     if not dir_path.exists():
         raise FileNotFoundError(f"Given directory not found: {dir_path}")
 
-    h5ad_path = ''
+    h5ad_file_path = ''
     for path in dir_path.rglob("*"):
         if path.is_file() and 'annotated.h5ad' in path.name:
-            h5ad_path = path
+            h5ad_file_path = path
 
-            tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_path)
+            tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path)
             print(f" - TileDB-SOMA experiment created at {tiledbsoma_expt_path}\n")
 
-    if h5ad_path == '':
+    if h5ad_file_path == '':
         raise FileNotFoundError(f"No annotated.h5ad file found in the given directory path.")
 
 if __name__ == "__main__":
