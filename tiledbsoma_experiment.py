@@ -29,12 +29,48 @@ Created: 2026-02-05
 
 import argparse
 from pathlib import Path
-import scanpy as sc
+import pandas as pd
 import tiledbsoma.io
 import utils
 
 
-def create_tiledbsoma_expt(h5ad_file_path):
+def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
+    adata, columns_absent, columns_new = utils.compare_obs_columns(h5ad_file_path)
+    print("\nInitial number of columns = ", len(list(adata.obs.columns)))
+
+    # Add the absent columns to the dataset with NA values and check if they are added successfully
+    if len(columns_absent) > 0:
+        adata.obs[columns_absent] = pd.DataFrame(pd.NA, index=adata.obs_names, columns=columns_absent)
+
+        # Confirm columns are added
+        if all(col in adata.obs.columns for col in columns_absent):
+            print("\nAll columns from the standard list are now present in the dataset after adding the absent columns.")
+        else:
+            print("\nSome columns from the standard list are still missing in the dataset after adding the absent columns.")
+            missing = [col for col in columns_absent if col not in adata.obs.columns]
+            print("\nMissing columns:")
+            for col in missing:
+                print(f" - {col}")
+
+    # Drop the new columns from the dataset that are not in the standard list and check if they are dropped successfully
+    if len(columns_new) > 0:
+        adata.obs.drop(columns=columns_new, errors="ignore", inplace=True)
+
+        # Confirm columns are dropped
+        if all(col not in adata.obs.columns for col in columns_new):
+            print("\nAll columns new in the dataset with respect to the standard list are now removed from the dataset.")
+        else:
+            print("\nSome columns new in the dataset with respect to the standard list are still present in the dataset after dropping the new columns.")
+            still_present = [col for col in columns_new if col in adata.obs.columns]
+            print("\nColumns still present:")
+            for col in still_present:
+                print(f" - {col}")
+
+    print("\nFinal number of columns = ", len(list(adata.obs.columns)))
+    return adata
+
+
+def create_tiledbsoma_expt(h5ad_file_path, adata):
     """
     Creates a TileDB-SOMA experiment from the provided AnnData (.h5ad) file.
 
@@ -48,7 +84,7 @@ def create_tiledbsoma_expt(h5ad_file_path):
     and converts the data into a TileDB-SOMA experiment, saving it in the dataset directory.
     """
 
-    adata = sc.read_h5ad(h5ad_file_path)
+    #adata = sc.read_h5ad(h5ad_file_path)
 
     dataset_path = h5ad_file_path.parent.parent
     dataset = dataset_path.name
@@ -111,7 +147,9 @@ def main():
         if path.is_file() and 'annotated.h5ad' in path.name:
             h5ad_file_path = path
 
-            tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path)
+            adata = compare_obs_columns_and_update_adata(h5ad_file_path)
+
+            tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path, adata)
             print(f" - TileDB-SOMA experiment created at {tiledbsoma_expt_path}\n")
 
     if h5ad_file_path == '':

@@ -85,18 +85,22 @@ def compare_obs_columns(h5ad_file_path: Path):
     adata = sc.read_h5ad(h5ad_file_path)
     adata_columns = list(adata.obs.columns)
 
+    columns_absent = []
+    columns_new = []
+
     if set(std_columns) == set(adata_columns):
-        print("Columns match.")
+        print("\nColumns match.")
     else:
-        print("Columns differ!")
+        print("\nColumns differ!")
 
         columns_absent = list(set(std_columns) - set(adata_columns))
         columns_new = list(set(adata_columns) - set(std_columns))
         if len(columns_absent) > 0:
-            print("Columns absent in dataset with respect to the standard list:")
+            print("\nColumns absent in dataset with respect to the standard list:")
             for i in range(len(columns_absent)):
                 print(str(i+1)+'. '+ columns_absent[i])
         if len(columns_new) > 0:
-            print("Columns new in dataset with respect to the standard list:")
+            print("\nColumns new in dataset with respect to the standard list:")
             for i in range(len(columns_new)):
                 print(str(i+1)+'. '+ columns_new[i])
+    return adata, columns_absent, columns_new

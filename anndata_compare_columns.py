@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-compare_columns.py
+anndata_compare_columns.py
 
 This script compares the `obs` columns from a supplied annotated AnnData (.h5ad) file against 
 the standard list of columns provided in file batch17_universal_obs_columns.txt. 
@@ -9,13 +9,15 @@ It prints out column differences and writes the observed columns from the provid
 into a text file for record-keeping and stored at /SCDS_TileDB-SOMA/anndata_columns_archive. 
 
 Usage:
-    python compare_columns.py h5ad_file_path
+    python anndata_compare_columns.py h5ad_file_path
 
 Arguments:    
     h5ad_file_path: Path to the h5ad file to be compared.
 
-Example:
-    python compare_columns.py /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad
+Examples:
+    python anndata_compare_columns.py /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad
+    python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/GSE174653/deliverables/Hayashi_2022_Nature-GSE174653-anndata-annotated.h5ad
+    python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/E-MTAB-8562/deliverables/Sun_2020_Nature-E-MTAB-8562-anndata-annotated.h5ad
 
 Output:
     - Indicates if obs columns match or differ, identifying missing or new columns.
