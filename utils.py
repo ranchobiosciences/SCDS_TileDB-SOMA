@@ -71,8 +71,16 @@ def compare_obs_columns(h5ad_file_path: Path):
 
     Returns
     -------
-    None
-        Prints comparison results and writes current `obs` columns to text file.
+    adata : AnnData object
+        The AnnData object read from the provided .h5ad file, which can be used for further processing if needed.
+    columns_status : str
+        A string indicating whether the columns match ("matches") or differ ("differs") from the standard list.
+    columns_absent : list
+        A list of columns that are absent in the current dataset with respect to the standard list.
+    columns_new : list
+        A list of columns that are new in the current dataset with respect to the standard list.
+    
+    Prints comparison results and writes current `obs` columns to text file.
     """
 
     standard_columns_file_path = Path(__file__).parent / "batch17_universal_obs_columns.txt"
@@ -85,13 +93,15 @@ def compare_obs_columns(h5ad_file_path: Path):
     adata = sc.read_h5ad(h5ad_file_path)
     adata_columns = list(adata.obs.columns)
 
+    columns_status = "matches"
     columns_absent = []
     columns_new = []
 
     if set(std_columns) == set(adata_columns):
-        print("\nColumns match.")
+        print("\nColumns match with the standard list.")
     else:
-        print("\nColumns differ!")
+        print("\nColumns differ from the standard list.")
+        columns_status = "differs"
 
         columns_absent = list(set(std_columns) - set(adata_columns))
         columns_new = list(set(adata_columns) - set(std_columns))
@@ -103,4 +113,4 @@ def compare_obs_columns(h5ad_file_path: Path):
             print("\nColumns new in dataset with respect to the standard list:")
             for i in range(len(columns_new)):
                 print(str(i+1)+'. '+ columns_new[i])
-    return adata, columns_absent, columns_new
+    return adata, columns_status, columns_absent, columns_new
