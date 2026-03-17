@@ -61,7 +61,7 @@ def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
 
     adata, columns_status, columns_absent, columns_new = utils.compare_obs_columns(h5ad_file_path)
     if columns_status == "differs":
-        print("\nInitial number of columns = ", len(list(adata.obs.columns)))
+        print("\nInitial number of columns =", len(list(adata.obs.columns)))
 
         # Add the absent columns to the dataset with NA values and check if they are added successfully
         if len(columns_absent) > 0:
@@ -91,7 +91,7 @@ def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
                 for col in still_present:
                     print(f" - {col}")
 
-        print("\nFinal number of columns = ", len(list(adata.obs.columns)))
+        print("\nFinal number of columns =", len(list(adata.obs.columns)))
     return adata
 
 

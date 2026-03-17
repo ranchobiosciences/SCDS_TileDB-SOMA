@@ -88,7 +88,7 @@ def compare_obs_columns(h5ad_file_path: Path):
     with open(standard_columns_file_path, "r") as f:
         std_columns = [line.strip() for line in f if line.strip() != '']
     
-    print('Number of standard columns = ', len(std_columns))
+    print('Number of standard columns =', len(std_columns))
 
     adata = sc.read_h5ad(h5ad_file_path)
     adata_columns = list(adata.obs.columns)
