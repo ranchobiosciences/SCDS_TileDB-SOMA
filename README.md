@@ -1,5 +1,5 @@
 # SCDS_TileDB-SOMA
-Scripts to create TileDB-SOMA experiment, add experiments to collections etc. for Single cell datasets
+Scripts to create TileDB-SOMA experiments, collections, add experiments to collections do analysis for single cell datasets.
 
 Use conda env `tiledbsoma` (`/opt/mamba/envs/tiledbsoma/`) on scds-c server:  
 `conda activate tiledbsoma`  
@@ -8,7 +8,7 @@ Can create the environment from the `tiledbsoma_environment.yml` file included i
 `conda env create -f tiledbsoma_environment.yml`
 
 ## tiledbsoma_experiment.py
-Script to generate TileDB-SOMA experiment for SCDS datasets under the given directory (datasets under the batch or individual datasets).
+Script to generate TileDB-SOMA experiment for SCDS datasets (datasets under the batch dir or individual datasets).
 
 Usage:  
     `python tiledbsoma_experiment.py /path/to/dir/`
@@ -45,23 +45,19 @@ Examples:
 - For adding multiple TileDB-SOMA experiments under a batch: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/`
 
 ## anndata_compare_columns.py
-This script compares the `obs` columns from a reference dataset (provided as a JSON file)
-with those of a supplied annotated AnnData (.h5ad) file. It prints out column differences and
-writes the observed columns from the provided dataset into a JSON file for record-keeping.
-Columns json files from different datasets are stored at /SCDS_TileDB-SOMA/anndata_columns_archive. 
-Default dataset used is /SCDS_TileDB-SOMA/anndata_columns_archive/batch14_GSE76312. 
-If no other reference dataset is provided, it will be checked against this one and report the changes.
+This script compares the `obs` columns from a supplied annotated AnnData (.h5ad) file against the standard list of columns provided in file batch17_universal_obs_columns.txt. It prints out column differences.
 
 Usage:  
-`python compare_columns.py ref_dataset /path/to/h5ad`
+`python compare_columns.py /path/to/h5ad_file`
 
 Arguments:  
-- ref_dataset: batch-dataset combination to be used as the reference, separated by an underscore e.g., batch14_GSE76312.
-- annotated.h5ad: Path to the AnnData object (.h5ad) for the dataset to compare.
+  - h5ad_file_path: Path to the h5ad file to be compared.
 
 Example:  
     `python compare_columns.py batch14_GSE76312 /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad`
+    `python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/GSE174653/deliverables/Hayashi_2022_Nature-GSE174653-anndata-annotated.h5ad`
+    `python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/E-MTAB-8562/deliverables/Sun_2020_Nature-E-MTAB-8562-anndata-annotated.h5ad1
 
 Output:  
   - Indicates if obs columns match or differ, identifying missing or new columns.
-  - Writes a JSON file with columns from the compared dataset for record-keeping.
+  
