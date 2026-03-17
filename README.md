@@ -1,5 +1,5 @@
 # SCDS_TileDB-SOMA
-Scripts to create TileDB-SOMA experiments, collections, add experiments to collections do analysis for single cell datasets.
+The repository contains scripts to create TileDB-SOMA experiments from single-cell datasets, add experiments to collections and do some analysis. It also contains a Python notebook with example codes for working with TileDB-SOMA objects - experiments, collections etc.
 
 Use conda env `tiledbsoma` (`/opt/mamba/envs/tiledbsoma/`) on scds-c server:  
 `conda activate tiledbsoma`  
