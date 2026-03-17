@@ -72,5 +72,4 @@ Examples:
 - List experiments available in each collection
 - Get the number of cells and genes in each experiment in the collections
 - Query on multiple experiments in a collection and create a combined anndata object
-- Running the downstream pipeline with the query result - PCA plotting, UMAP plotting
-- 
+- Running the downstream pipeline with the query result - PCA plotting, UMAP plotting 
