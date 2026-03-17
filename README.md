@@ -56,7 +56,7 @@ Arguments:
 Examples:  
 - `python compare_columns.py batch14_GSE76312 /wip/scds/delivery-zips/batch14/GSE137429/deliverables_2025-05-16/Ganan-Gomez_2022_Nat_Med-GSE137429-anndata-annotated.h5ad`  
 - `python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/GSE174653/deliverables/Hayashi_2022_Nature-GSE174653-anndata-annotated.h5ad`  
-- `python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/E-MTAB-8562/deliverables/Sun_2020_Nature-E-MTAB-8562-anndata-annotated.h5ad1  
+- `python anndata_compare_columns.py /wip/scds/delivery-zips/batch17/E-MTAB-8562/deliverables/Sun_2020_Nature-E-MTAB-8562-anndata-annotated.h5ad1`
 
 Output:  
   - Indicates if obs columns match or differ, identifying missing or new columns.
@@ -73,3 +73,6 @@ Examples:
 - Get the number of cells and genes in each experiment in the collections
 - Query on multiple experiments in a collection and create a combined anndata object
 - Running the downstream pipeline with the query result - PCA plotting, UMAP plotting 
+
+## batch17_universal_obs_columns.txt
+This file contains the standard list of obs columns expected in an anndata object in an h5ad file. Before creating tiledb-soma experiments, the new datasets are compared to this list and any columns that are absent are in the new dataset are added and filled with NA and any extra columns that are not present in this list are removed.
