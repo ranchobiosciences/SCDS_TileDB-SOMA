@@ -164,8 +164,6 @@ def create_tiledbsoma_expt(h5ad_file_path, adata):
 
     """
 
-    #adata = sc.read_h5ad(h5ad_file_path)
-
     h5ad_str = str(h5ad_file_path)
     if is_s3_path(h5ad_str):
         dataset_path = s3_parent(h5ad_str, levels=2)

@@ -86,88 +86,85 @@ def main():
             raise FileNotFoundError(f"No tiledbsoma_expt directories found in: {dir_path}")
 
     for expt_uri in expt_uris:
-        expt = soma.Experiment.open(expt_uri)
+        with soma.Experiment.open(expt_uri) as expt:
 
-        if is_s3_path(expt_uri):
-            dataset = s3_name(s3_parent(expt_uri))
-            batch = s3_name(s3_parent(expt_uri, levels=2))
-        else:
-            expt_path = Path(expt_uri)
-            dataset = expt_path.parent.name
-            batch = expt_path.parent.parent.name
+            if is_s3_path(expt_uri):
+                dataset = s3_name(s3_parent(expt_uri))
+                batch = s3_name(s3_parent(expt_uri, levels=2))
+            else:
+                expt_path = Path(expt_uri)
+                dataset = expt_path.parent.name
+                batch = expt_path.parent.parent.name
 
-        obs_df = expt.obs.read(column_names=['donor_organism', 'dataset_workflow']).concat().to_pandas()
+            expt_name = batch + "_" + dataset
 
-        # Item 1: Check required routing columns are non-null
-        skip = False
-        for col in ['donor_organism', 'dataset_workflow']:
-            if obs_df[col].isna().all():
-                print(f" - Skipping {expt_name}: '{col}' has all null values.")
-                skip = True
-        if skip:
-            continue
+            obs_df = expt.obs.read(column_names=['donor_organism', 'dataset_workflow']).concat().to_pandas()
 
-        # Item 2: Check for mixed values within the dataset
-        donor_organisms = obs_df['donor_organism'].dropna().unique()
-        if len(donor_organisms) > 1:
-            print(f" - Skipping {expt_name}: mixed donor_organism values: {list(donor_organisms)}.")
-            continue
-
-        dataset_workflows = obs_df['dataset_workflow'].dropna().unique()
-        if len(dataset_workflows) > 1:
-            print(f" - Skipping {expt_name}: mixed dataset_workflow values: {list(dataset_workflows)}.")
-            continue
-
-        donor_organism = donor_organisms[0].lower()
-        dataset_workflow = dataset_workflows[0].lower()
-        print(f"Batch: {batch}, Dataset: {dataset}, Donor Organism: {donor_organism}, Dataset Workflow: {dataset_workflow}")
-
-        expt_name = batch + "_" + dataset
-
-        if donor_organism.lower() not in ["human", "mouse"]:
-            print(f" - Skipping {expt_name}: unrecognized donor_organism '{donor_organism}' (expected 'human' or 'mouse').")
-            continue
-
-        # Map workflow → suffix
-        workflow_map = {
-            "smartseq2": "ss2",
-            "cellranger": "10x",
-        }
-
-        workflow_suffix = None
-        for key, suffix in workflow_map.items():
-            if key in dataset_workflow:
-                workflow_suffix = suffix
-                break
-
-        if not workflow_suffix:
-            print(f" - Skipping {expt_name}: unrecognized dataset_workflow '{dataset_workflow}' (expected 'cellranger' or 'smartseq2').")
-            continue
-
-        # Gene count check for cellranger datasets
-        if workflow_suffix == "10x":
-            expected_genes = CELLRANGER_EXPECTED_GENES[donor_organism.lower()]
-            actual_genes = expt.ms["RNA"].var.count
-            if actual_genes != expected_genes:
-                print(f" - Skipping {expt_name}: gene count mismatch for {donor_organism} cellranger dataset. Expected {expected_genes}, got {actual_genes}.")
+            # Check required routing columns are non-null
+            skip = False
+            for col in ['donor_organism', 'dataset_workflow']:
+                if obs_df[col].isna().all():
+                    print(f" - Skipping {expt_name}: '{col}' has all null values.")
+                    skip = True
+            if skip:
                 continue
 
-        if donor_organism.lower() == "human":
-            collection_name = f"Human_{workflow_suffix}"
-        else:
-            collection_name = f"Mouse_{workflow_suffix}"
+            # Check for mixed values within the dataset
+            donor_organisms = obs_df['donor_organism'].dropna().unique()
+            if len(donor_organisms) > 1:
+                print(f" - Skipping {expt_name}: mixed donor_organism values: {list(donor_organisms)}.")
+                continue
 
-        if is_s3_path(collections_path):
-            collection_uri = f"{collections_path}/{collection_name}"
-        else:
-            collection_uri = str(Path(collections_path) / collection_name)
+            dataset_workflows = obs_df['dataset_workflow'].dropna().unique()
+            if len(dataset_workflows) > 1:
+                print(f" - Skipping {expt_name}: mixed dataset_workflow values: {list(dataset_workflows)}.")
+                continue
 
-        with soma.Collection.open(collection_uri, "w") as coll:
-            if expt_name in coll:
-                print(f" - Skipping {expt_name}: already exists in collection {collection_name}.")
+            donor_organism = donor_organisms[0].lower()
+            dataset_workflow = dataset_workflows[0].lower()
+            print(f"Batch: {batch}, Dataset: {dataset}, Donor Organism: {donor_organism}, Dataset Workflow: {dataset_workflow}")
+
+            if donor_organism not in ["human", "mouse"]:
+                print(f" - Skipping {expt_name}: unrecognized donor_organism '{donor_organism}' (expected 'human' or 'mouse').")
+                continue
+
+            # Map workflow → suffix
+            workflow_map = {
+                "smartseq2": "ss2",
+                "cellranger": "10x",
+            }
+
+            workflow_suffix = None
+            for key, suffix in workflow_map.items():
+                if key in dataset_workflow:
+                    workflow_suffix = suffix
+                    break
+
+            if not workflow_suffix:
+                print(f" - Skipping {expt_name}: unrecognized dataset_workflow '{dataset_workflow}' (expected 'cellranger' or 'smartseq2').")
+                continue
+
+            # Gene count check for cellranger datasets
+            if workflow_suffix == "10x":
+                expected_genes = CELLRANGER_EXPECTED_GENES[donor_organism]
+                actual_genes = expt.ms["RNA"].var.count
+                if actual_genes != expected_genes:
+                    print(f" - Skipping {expt_name}: gene count mismatch for {donor_organism} cellranger dataset. Expected {expected_genes}, got {actual_genes}.")
+                    continue
+
+            collection_name = f"Human_{workflow_suffix}" if donor_organism == "human" else f"Mouse_{workflow_suffix}"
+
+            if is_s3_path(collections_path):
+                collection_uri = f"{collections_path}/{collection_name}"
             else:
-                coll.set(expt_name, expt)
-                print(f"Added experiment {expt_name} to collection {collection_name} at path: {collection_uri}")
+                collection_uri = str(Path(collections_path) / collection_name)
+
+            with soma.Collection.open(collection_uri, "w") as coll:
+                if expt_name in coll:
+                    print(f" - Skipping {expt_name}: already exists in collection {collection_name}.")
+                else:
+                    coll.set(expt_name, expt)
+                    print(f"Added experiment {expt_name} to collection {collection_name} at path: {collection_uri}")
 
 
 if __name__ == "__main__":
