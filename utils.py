@@ -24,32 +24,73 @@ Created: 2026-02-05
 from pathlib import Path
 import scanpy as sc
 
-def next_available_dir(path: Path) -> Path:
+
+def is_s3_path(path: str) -> bool:
+    """Returns True if the given path is an S3 URI (starts with s3://)."""
+    return str(path).startswith("s3://")
+
+
+def _get_s3fs():
+    """Lazily import and return an s3fs.S3FileSystem instance."""
+    try:
+        import s3fs
+    except ImportError:
+        raise ImportError("s3fs is required for S3 support. Install it with: conda install -c conda-forge s3fs")
+    return s3fs.S3FileSystem()
+
+
+def s3_parent(s3_uri: str, levels: int = 1) -> str:
+    """Return the parent path of an S3 URI by removing N trailing path components."""
+    assert s3_uri.startswith("s3://"), f"Expected S3 URI, got: {s3_uri}"
+    parts = s3_uri.rstrip("/").split("/")
+    return "/".join(parts[:-levels])
+
+
+def s3_name(s3_uri: str) -> str:
+    """Return the final path component of an S3 URI."""
+    return s3_uri.rstrip("/").split("/")[-1]
+
+
+def next_available_dir(path) -> str:
     """
     Returns the next available directory path by appending an incrementing number as suffix if the given path exists.
     This function will check if the given directory (e.g., tiledbsoma_expt) already exists, and will return tiledbsoma_expt_2 (1 is skipped deliberately)
 
+    Supports both local filesystem paths and S3 URIs (s3://bucket/prefix).
+
     Parameters
     ----------
-    path : Path
+    path : str or Path
         The base directory path to check.
 
     Returns
     -------
-    Path
-        The new available directory path.
+    str
+        The next available directory path.
     """
-    path = Path(path)
-    if not path.exists():
-        return path
-    
-    i = 2
-    while True:
-        new_path = Path(f"{path}_{i}")
-        if not new_path.exists():
-            print(f" - {path} already exists. The TileDB-SOMA experiment will be created at {new_path}")
-            return new_path
-        i += 1
+    path_str = str(path)
+    if is_s3_path(path_str):
+        fs = _get_s3fs()
+        if not fs.exists(path_str):
+            return path_str
+        i = 2
+        while True:
+            new_path = f"{path_str}_{i}"
+            if not fs.exists(new_path):
+                print(f" - {path_str} already exists. The TileDB-SOMA experiment will be created at {new_path}")
+                return new_path
+            i += 1
+    else:
+        path = Path(path)
+        if not path.exists():
+            return str(path)
+        i = 2
+        while True:
+            new_path = Path(f"{path}_{i}")
+            if not new_path.exists():
+                print(f" - {path} already exists. The TileDB-SOMA experiment will be created at {new_path}")
+                return str(new_path)
+            i += 1
 
 def compare_obs_columns(h5ad_file_path: Path):
     """
@@ -90,7 +131,12 @@ def compare_obs_columns(h5ad_file_path: Path):
     
     print('Number of standard columns =', len(std_columns))
 
-    adata = sc.read_h5ad(h5ad_file_path)
+    if is_s3_path(str(h5ad_file_path)):
+        fs = _get_s3fs()
+        with fs.open(str(h5ad_file_path), "rb") as f:
+            adata = sc.read_h5ad(f)
+    else:
+        adata = sc.read_h5ad(h5ad_file_path)
     adata_columns = list(adata.obs.columns)
 
     columns_status = "matches"

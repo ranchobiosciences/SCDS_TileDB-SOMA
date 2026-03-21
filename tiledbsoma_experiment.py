@@ -32,6 +32,7 @@ from pathlib import Path
 import pandas as pd
 import tiledbsoma.io
 import utils
+from utils import is_s3_path, s3_parent, s3_name
 
 
 def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
@@ -122,15 +123,22 @@ def create_tiledbsoma_expt(h5ad_file_path, adata):
 
     #adata = sc.read_h5ad(h5ad_file_path)
 
-    dataset_path = h5ad_file_path.parent.parent
-    dataset = dataset_path.name
-    batch_path = dataset_path.parent
-    batch = batch_path.name
+    h5ad_str = str(h5ad_file_path)
+    if is_s3_path(h5ad_str):
+        dataset_path = s3_parent(h5ad_str, levels=2)
+        dataset = s3_name(dataset_path)
+        batch = s3_name(s3_parent(dataset_path))
+        tiledbsoma_expt_base = dataset_path + "/tiledbsoma_expt"
+    else:
+        dataset_path = Path(h5ad_file_path).parent.parent
+        dataset = dataset_path.name
+        batch = dataset_path.parent.name
+        tiledbsoma_expt_base = str(dataset_path / "tiledbsoma_expt")
+
     print(f"\nBatch: {batch}, Dataset: {dataset}")
     print(f" - annotated.h5ad file to be used: {h5ad_file_path}")
-    tiledbsoma_expt_path = dataset_path/"tiledbsoma_expt"
 
-    tiledbsoma_expt_path = str(utils.next_available_dir(tiledbsoma_expt_path))
+    tiledbsoma_expt_path = utils.next_available_dir(tiledbsoma_expt_base)
 
     tiledbsoma.io.from_anndata(
         experiment_uri=tiledbsoma_expt_path,
@@ -170,29 +178,36 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Generate TileDB-SOMA experiment for the SCDS dataset.")
     parser.add_argument(
-        "dir_path", 
-        type=Path, 
-        help="Path to the dataset directory that contains the AnnData annotated.h5ad file to be used for creating the TileDB-SOMA experiment"
+        "dir_path",
+        type=str,
+        help="Path to the dataset directory that contains the AnnData annotated.h5ad file to be used for creating the TileDB-SOMA experiment. Accepts local paths or S3 URIs (s3://bucket/prefix/)."
     )
     args = parser.parse_args()
     dir_path = args.dir_path
     print(f"Given directory path: {dir_path}")
 
-    if not dir_path.exists():
-        raise FileNotFoundError(f"Given directory not found: {dir_path}")
+    h5ad_files = []
 
-    h5ad_file_path = ''
-    for path in dir_path.rglob("*"):
-        if path.is_file() and 'annotated.h5ad' in path.name:
-            h5ad_file_path = path
+    if is_s3_path(dir_path):
+        fs = utils._get_s3fs()
+        # Strip s3:// for s3fs glob operations
+        prefix = dir_path[5:].rstrip("/")
+        matches = fs.glob(f"{prefix}/**/*annotated.h5ad")
+        if not matches:
+            raise FileNotFoundError(f"No annotated.h5ad file found at S3 path: {dir_path}")
+        h5ad_files = [f"s3://{m}" for m in matches]
+    else:
+        local_path = Path(dir_path)
+        if not local_path.exists():
+            raise FileNotFoundError(f"Given directory not found: {dir_path}")
+        h5ad_files = [p for p in local_path.rglob("*") if p.is_file() and "annotated.h5ad" in p.name]
+        if not h5ad_files:
+            raise FileNotFoundError(f"No annotated.h5ad file found in the given directory path.")
 
-            adata = compare_obs_columns_and_update_adata(h5ad_file_path)
-
-            tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path, adata)
-            print(f" - TileDB-SOMA experiment created at {tiledbsoma_expt_path}\n")
-
-    if h5ad_file_path == '':
-        raise FileNotFoundError(f"No annotated.h5ad file found in the given directory path.")
+    for h5ad_file_path in h5ad_files:
+        adata = compare_obs_columns_and_update_adata(h5ad_file_path)
+        tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path, adata)
+        print(f" - TileDB-SOMA experiment created at {tiledbsoma_expt_path}\n")
 
 if __name__ == "__main__":
     main()
