@@ -32,6 +32,12 @@ import tiledbsoma as soma
 import utils
 from utils import is_s3_path, s3_parent, s3_name
 
+# Expected number of genes (vars) for cellranger-processed datasets
+CELLRANGER_EXPECTED_GENES = {
+    "human": 36601,
+    "mouse": 32285,
+}
+
 
 def main():
 
@@ -96,34 +102,50 @@ def main():
 
         expt_name = batch + "_" + dataset
 
-        if donor_organism.lower() in ["human", "mouse"]:
-            # Map workflow → suffix
-            workflow_map = {
-                "smartseq2": "ss2",
-                "cellranger": "10x",
-            }
+        if donor_organism.lower() not in ["human", "mouse"]:
+            print(f" - Skipping {expt_name}: unrecognized donor_organism '{donor_organism}' (expected 'human' or 'mouse').")
+            continue
 
-            # Find matching workflow
-            workflow_suffix = None
-            for key, suffix in workflow_map.items():
-                if key in dataset_workflow:
-                    workflow_suffix = suffix
-                    break
+        # Map workflow → suffix
+        workflow_map = {
+            "smartseq2": "ss2",
+            "cellranger": "10x",
+        }
 
-            if workflow_suffix:
-                if donor_organism.lower() == "human":
-                    collection_name = f"Human_{workflow_suffix}"
-                else:
-                    collection_name = f"Mouse_{workflow_suffix}"
+        workflow_suffix = None
+        for key, suffix in workflow_map.items():
+            if key in dataset_workflow:
+                workflow_suffix = suffix
+                break
 
-                if is_s3_path(collections_path):
-                    collection_uri = f"{collections_path}/{collection_name}"
-                else:
-                    collection_uri = str(Path(collections_path) / collection_name)
+        if not workflow_suffix:
+            print(f" - Skipping {expt_name}: unrecognized dataset_workflow '{dataset_workflow}' (expected 'cellranger' or 'smartseq2').")
+            continue
 
-                with soma.Collection.open(collection_uri, "w") as coll:
-                    coll.set(expt_name, expt)
-                    print(f"Added experiment {expt_name} to collection {collection_name} at path: {collection_uri}")
+        # Gene count check for cellranger datasets
+        if workflow_suffix == "10x":
+            expected_genes = CELLRANGER_EXPECTED_GENES[donor_organism.lower()]
+            actual_genes = expt.ms["RNA"].var.count
+            if actual_genes != expected_genes:
+                print(f" - Skipping {expt_name}: gene count mismatch for {donor_organism} cellranger dataset. Expected {expected_genes}, got {actual_genes}.")
+                continue
+
+        if donor_organism.lower() == "human":
+            collection_name = f"Human_{workflow_suffix}"
+        else:
+            collection_name = f"Mouse_{workflow_suffix}"
+
+        if is_s3_path(collections_path):
+            collection_uri = f"{collections_path}/{collection_name}"
+        else:
+            collection_uri = str(Path(collections_path) / collection_name)
+
+        with soma.Collection.open(collection_uri, "w") as coll:
+            if expt_name in coll:
+                print(f" - Skipping {expt_name}: already exists in collection {collection_name}.")
+            else:
+                coll.set(expt_name, expt)
+                print(f"Added experiment {expt_name} to collection {collection_name} at path: {collection_uri}")
 
 
 if __name__ == "__main__":
