@@ -35,6 +35,49 @@ import utils
 from utils import is_s3_path, s3_parent, s3_name
 
 
+def validate_adata(adata, h5ad_file_path):
+    """
+    Validates an AnnData object before conversion to a TileDB-SOMA experiment.
+
+    Checks:
+        - Counts matrix (adata.X) is present.
+        - No duplicate cell barcodes in obs index.
+        - No duplicate gene names in var index.
+
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object to validate.
+    h5ad_file_path : str or Path
+        Path to the source file, used for error messages.
+
+    Returns
+    -------
+    bool
+        True if all checks pass, False if any check fails.
+    """
+    errors = []
+
+    if adata.X is None:
+        errors.append("counts matrix (adata.X) is None.")
+
+    n_dup_obs = adata.obs_names.duplicated().sum()
+    if n_dup_obs > 0:
+        errors.append(f"{n_dup_obs} duplicate cell barcodes in obs index.")
+
+    n_dup_var = adata.var_names.duplicated().sum()
+    if n_dup_var > 0:
+        errors.append(f"{n_dup_var} duplicate gene names in var index.")
+
+    if errors:
+        print(f"\nValidation failed for {h5ad_file_path}:")
+        for e in errors:
+            print(f" - {e}")
+        return False
+
+    return True
+
+
 def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
     """
     
@@ -206,6 +249,9 @@ def main():
 
     for h5ad_file_path in h5ad_files:
         adata = compare_obs_columns_and_update_adata(h5ad_file_path)
+        if not validate_adata(adata, h5ad_file_path):
+            print(f" - Skipping conversion for {h5ad_file_path}.\n")
+            continue
         tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path, adata)
         print(f" - TileDB-SOMA experiment created at {tiledbsoma_expt_path}\n")
 

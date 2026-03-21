@@ -96,8 +96,30 @@ def main():
             dataset = expt_path.parent.name
             batch = expt_path.parent.parent.name
 
-        donor_organism = expt.obs.read(column_names=['donor_organism']).concat().to_pandas()["donor_organism"].unique()[0].lower()
-        dataset_workflow = expt.obs.read(column_names=['dataset_workflow']).concat().to_pandas()["dataset_workflow"].unique()[0].lower()
+        obs_df = expt.obs.read(column_names=['donor_organism', 'dataset_workflow']).concat().to_pandas()
+
+        # Item 1: Check required routing columns are non-null
+        skip = False
+        for col in ['donor_organism', 'dataset_workflow']:
+            if obs_df[col].isna().all():
+                print(f" - Skipping {expt_name}: '{col}' has all null values.")
+                skip = True
+        if skip:
+            continue
+
+        # Item 2: Check for mixed values within the dataset
+        donor_organisms = obs_df['donor_organism'].dropna().unique()
+        if len(donor_organisms) > 1:
+            print(f" - Skipping {expt_name}: mixed donor_organism values: {list(donor_organisms)}.")
+            continue
+
+        dataset_workflows = obs_df['dataset_workflow'].dropna().unique()
+        if len(dataset_workflows) > 1:
+            print(f" - Skipping {expt_name}: mixed dataset_workflow values: {list(dataset_workflows)}.")
+            continue
+
+        donor_organism = donor_organisms[0].lower()
+        dataset_workflow = dataset_workflows[0].lower()
         print(f"Batch: {batch}, Dataset: {dataset}, Donor Organism: {donor_organism}, Dataset Workflow: {dataset_workflow}")
 
         expt_name = batch + "_" + dataset
