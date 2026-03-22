@@ -72,6 +72,51 @@ def normalize_obsm(adata):
         del adata.obsm[key]
 
 
+def map_uns_category_orders(adata):
+    """
+    For each key in adata.uns ending in '_colors', checks whether a matching
+    column exists in adata.obs. If found, writes the ordered category labels
+    to a new adata.uns key with the same base name but ending in '_order'.
+
+    This ensures the color-to-label mapping is explicitly preserved in uns
+    before conversion to TileDB-SOMA, since color arrays are index-ordered
+    against the category list.
+
+    For categorical obs columns the order comes from the defined category
+    order (adata.obs[col].cat.categories). For non-categorical columns the
+    unique values are sorted for consistency.
+
+    A warning is printed if the number of colors does not match the number
+    of categories, as this indicates a mismatch in the source data.
+
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object to update in-place.
+    """
+    for key in list(adata.uns.keys()):
+        if not key.endswith("_colors"):
+            continue
+        obs_col = key[: -len("_colors")]
+        if obs_col not in adata.obs.columns:
+            continue
+
+        col = adata.obs[obs_col]
+        if hasattr(col, "cat"):
+            categories = list(col.cat.categories)
+        else:
+            categories = sorted(col.dropna().unique().tolist())
+
+        n_colors = len(adata.uns[key])
+        if n_colors != len(categories):
+            print(f" - uns['{key}']: color count ({n_colors}) does not match category count ({len(categories)}) for obs column '{obs_col}' — skipping.")
+            continue
+
+        order_key = obs_col + "_order"
+        adata.uns[order_key] = categories
+        print(f" - uns['{order_key}']: saved {len(categories)} category labels for '{obs_col}'.")
+
+
 def validate_adata(adata, h5ad_file_path):
     """
     Validates an AnnData object before conversion to a TileDB-SOMA experiment.
@@ -285,6 +330,7 @@ def main():
     for h5ad_file_path in h5ad_files:
         adata = compare_obs_columns_and_update_adata(h5ad_file_path)
         normalize_obsm(adata)
+        map_uns_category_orders(adata)
         if not validate_adata(adata, h5ad_file_path):
             print(f" - Skipping conversion for {h5ad_file_path}.\n")
             continue
