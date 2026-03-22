@@ -29,10 +29,47 @@ Created: 2026-02-05
 
 import argparse
 from pathlib import Path
+import numpy as np
 import pandas as pd
+import scipy.sparse
 import tiledbsoma.io
 import utils
 from utils import is_s3_path, s3_parent, s3_name
+
+
+def normalize_obsm(adata):
+    """
+    Normalizes obsm entries in-place to be compatible with TileDB-SOMA conversion.
+
+    tiledbsoma.io.from_anndata() requires obsm entries to be dense numeric numpy
+    arrays. This function:
+        - Converts pandas DataFrames to numpy arrays.
+        - Converts scipy sparse matrices to dense numpy arrays.
+        - Drops entries with non-numeric dtypes (e.g., object/string arrays),
+          printing a warning for each dropped entry.
+
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object whose obsm will be normalized in-place.
+    """
+    keys_to_drop = []
+    for key, value in adata.obsm.items():
+        if isinstance(value, pd.DataFrame):
+            adata.obsm[key] = value.to_numpy()
+            print(f" - obsm['{key}']: converted DataFrame to numpy array.")
+        elif scipy.sparse.issparse(value):
+            adata.obsm[key] = value.toarray()
+            print(f" - obsm['{key}']: converted sparse matrix to dense numpy array.")
+
+        # After any conversion, check dtype is numeric
+        arr = adata.obsm[key]
+        if not np.issubdtype(np.array(arr).dtype, np.number):
+            print(f" - obsm['{key}']: non-numeric dtype '{np.array(arr).dtype}' is not supported by TileDB-SOMA — dropping.")
+            keys_to_drop.append(key)
+
+    for key in keys_to_drop:
+        del adata.obsm[key]
 
 
 def validate_adata(adata, h5ad_file_path):
@@ -247,6 +284,7 @@ def main():
 
     for h5ad_file_path in h5ad_files:
         adata = compare_obs_columns_and_update_adata(h5ad_file_path)
+        normalize_obsm(adata)
         if not validate_adata(adata, h5ad_file_path):
             print(f" - Skipping conversion for {h5ad_file_path}.\n")
             continue
