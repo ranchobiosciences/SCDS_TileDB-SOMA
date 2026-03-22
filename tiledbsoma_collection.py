@@ -159,12 +159,33 @@ def main():
             else:
                 collection_uri = str(Path(collections_path) / collection_name)
 
+            if not soma.Collection.exists(collection_uri):
+                soma.Collection.create(collection_uri)
+                print(f"Created new collection {collection_name} at path: {collection_uri}")
+
             with soma.Collection.open(collection_uri, "w") as coll:
                 if expt_name in coll:
                     print(f" - Skipping {expt_name}: already exists in collection {collection_name}.")
-                else:
-                    coll.set(expt_name, expt)
-                    print(f"Added experiment {expt_name} to collection {collection_name} at path: {collection_uri}")
+                    continue
+
+                # Var schema consistency check against existing experiments in the collection
+                existing_keys = list(coll.keys())
+                if existing_keys:
+                    ref_var_columns = set(coll[existing_keys[0]].ms["RNA"].var.schema.names)
+                    new_var_columns = set(expt.ms["RNA"].var.schema.names)
+                    if ref_var_columns != new_var_columns:
+                        missing = sorted(ref_var_columns - new_var_columns)
+                        extra = sorted(new_var_columns - ref_var_columns)
+                        msgs = []
+                        if missing:
+                            msgs.append(f"missing from new experiment: {missing}")
+                        if extra:
+                            msgs.append(f"extra in new experiment: {extra}")
+                        print(f" - Skipping {expt_name}: var columns inconsistent with collection {collection_name} — {'; '.join(msgs)}.")
+                        continue
+
+                coll.set(expt_name, expt)
+                print(f"Added experiment {expt_name} to collection {collection_name} at path: {collection_uri}")
 
 
 if __name__ == "__main__":
