@@ -22,7 +22,40 @@ Created: 2026-02-05
 
 
 from pathlib import Path
+import sys
 import scanpy as sc
+
+
+class _Tee:
+    """Duplicates writes to both a stream (e.g. stdout) and a log file."""
+
+    def __init__(self, stream, log_path: str):
+        self._stream = stream
+        self._log = open(log_path, "w", buffering=1)
+
+    def write(self, data):
+        self._stream.write(data)
+        self._log.write(data)
+
+    def flush(self):
+        self._stream.flush()
+        self._log.flush()
+
+    def close(self):
+        self._log.close()
+
+
+def setup_logging(log_path: str):
+    """Redirect stdout to write to both the terminal and log_path."""
+    sys.stdout = _Tee(sys.stdout, log_path)
+
+
+def teardown_logging():
+    """Restore stdout and close the log file if logging was set up."""
+    if isinstance(sys.stdout, _Tee):
+        tee = sys.stdout
+        sys.stdout = tee._stream
+        tee.close()
 
 
 def is_s3_path(path: str) -> bool:
@@ -92,39 +125,88 @@ def next_available_dir(path) -> str:
                 return str(new_path)
             i += 1
 
-def compare_obs_columns(h5ad_file_path: Path):
-    """
-    Compares the `obs` columns from supplied annotated AnnData (.h5ad) file against 
-    the standard list of columns provided in file batch17_universal_obs_columns.txt.
+VAR_NUMERIC_COLUMNS = {"means", "dispersions", "dispersions_norm", "mean", "std"}
 
-    The function:
-        - Reads the dataset's `obs` columns from the input .h5ad file.
-        - Compares against the standard list of columns from the reference file.
-        - Prints whether the columns match exactly or details the differences:
-            - Columns absent in the current dataset with respect to standard set.
-            - Columns new in the current dataset with respect to standard set.
-        - Writes a text file with the `obs` columns of the current dataset for record-keeping.
+
+def compare_var_columns(adata, columns_file: str = None):
+    """
+    Compares the `var` columns of the given AnnData object against a standard
+    list of columns. Defaults to batch17_universal_var_columns.txt.
+
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object whose var columns will be compared.
+    columns_file : str, optional
+        Path to the standard columns file. Defaults to batch17_universal_var_columns.txt.
+
+    Returns
+    -------
+    columns_status : str
+        "matches" or "differs".
+    columns_absent : list
+        Columns absent in the current dataset relative to the standard list.
+    columns_new : list
+        Columns present in the current dataset but not in the standard list.
+    """
+    standard_columns_file_path = Path(columns_file) if columns_file else Path(__file__).parent / "batch17_universal_var_columns.txt"
+
+    with open(standard_columns_file_path, "r") as f:
+        std_columns = [line.strip() for line in f if line.strip() != '']
+
+    print('Number of standard var columns =', len(std_columns))
+
+    adata_columns = list(adata.var.columns)
+
+    columns_status = "matches"
+    columns_absent = []
+    columns_new = []
+
+    if set(std_columns) == set(adata_columns):
+        print("\nVar columns match with the standard list.")
+    else:
+        print("\nVar columns differ from the standard list.")
+        columns_status = "differs"
+
+        columns_absent = list(set(std_columns) - set(adata_columns))
+        columns_new = list(set(adata_columns) - set(std_columns))
+        if len(columns_absent) > 0:
+            print("\nVar columns absent in dataset with respect to the standard list:")
+            for i, col in enumerate(columns_absent):
+                print(str(i + 1) + '. ' + col)
+        if len(columns_new) > 0:
+            print("\nVar columns new in dataset with respect to the standard list:")
+            for i, col in enumerate(columns_new):
+                print(str(i + 1) + '. ' + col)
+
+    return columns_status, columns_absent, columns_new
+
+
+def compare_obs_columns(h5ad_file_path: Path, columns_file: str = None):
+    """
+    Compares the `obs` columns from supplied annotated AnnData (.h5ad) file against
+    a standard list of columns. Defaults to batch17_universal_obs_columns.txt.
 
     Parameters
     ----------
     h5ad_file_path : pathlib.Path
         Path to the .h5ad file to be compared.
+    columns_file : str, optional
+        Path to the standard columns file. Defaults to batch17_universal_obs_columns.txt.
 
     Returns
     -------
     adata : AnnData object
-        The AnnData object read from the provided .h5ad file, which can be used for further processing if needed.
+        The AnnData object read from the provided .h5ad file.
     columns_status : str
-        A string indicating whether the columns match ("matches") or differ ("differs") from the standard list.
+        "matches" or "differs".
     columns_absent : list
-        A list of columns that are absent in the current dataset with respect to the standard list.
+        Columns absent in the current dataset relative to the standard list.
     columns_new : list
-        A list of columns that are new in the current dataset with respect to the standard list.
-    
-    Prints comparison results and writes current `obs` columns to text file.
+        Columns present in the current dataset but not in the standard list.
     """
 
-    standard_columns_file_path = Path(__file__).parent / "batch17_universal_obs_columns.txt"
+    standard_columns_file_path = Path(columns_file) if columns_file else Path(__file__).parent / "batch17_universal_obs_columns.txt"
 
     with open(standard_columns_file_path, "r") as f:
         std_columns = [line.strip() for line in f if line.strip() != '']

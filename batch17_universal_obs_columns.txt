@@ -10,6 +10,9 @@ catalog_study_id
 cell_batch
 cell_cycle_phase
 cell_technology_type
+cancerFinder_call
+cancerFinder_call_healthy_samples_censored
+cancerFinder_score
 dataset_data_type
 dataset_id
 dataset_repository

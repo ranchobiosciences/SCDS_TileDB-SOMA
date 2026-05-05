@@ -1,0 +1,14 @@
+gene_ids
+feature_types
+mt
+ribo
+hemoglobin
+gene_symbols
+gene_symbols_2024A
+genome
+highly_variable
+means
+dispersions
+dispersions_norm
+mean
+std

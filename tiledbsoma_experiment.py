@@ -34,7 +34,17 @@ import pandas as pd
 import scipy.sparse
 import tiledbsoma.io
 import utils
-from utils import is_s3_path, s3_parent, s3_name
+from utils import is_s3_path, s3_parent, s3_name, VAR_NUMERIC_COLUMNS, setup_logging, teardown_logging
+
+DATASET_GROUP_OBS_COLUMNS_FILE = {
+    "scds": "batch17_universal_obs_columns.txt",
+    "scrnalive": "scrnalive_universal_obs_columns.txt",
+}
+
+DATASET_GROUP_VAR_COLUMNS_FILE = {
+    "scds": "batch17_universal_var_columns.txt",
+    "scrnalive": "scrnalive_universal_var_columns.txt",
+}
 
 
 def normalize_obsm(adata):
@@ -86,8 +96,9 @@ def map_uns_category_orders(adata):
     order (adata.obs[col].cat.categories). For non-categorical columns the
     unique values are sorted for consistency.
 
-    A warning is printed if the number of colors does not match the number
-    of categories, as this indicates a mismatch in the source data.
+    If the color array is longer than the category list (e.g., the dataset
+    was filtered after colors were assigned), the colors are trimmed to match.
+    If colors are fewer than categories, the entry is skipped with a warning.
 
     Parameters
     ----------
@@ -109,8 +120,12 @@ def map_uns_category_orders(adata):
 
         n_colors = len(adata.uns[key])
         if n_colors != len(categories):
-            print(f" - uns['{key}']: color count ({n_colors}) does not match category count ({len(categories)}) for obs column '{obs_col}' — skipping.")
-            continue
+            if n_colors > len(categories):
+                print(f" - uns['{key}']: color count ({n_colors}) exceeds category count ({len(categories)}) for obs column '{obs_col}' — trimming colors to match.")
+                adata.uns[key] = adata.uns[key][: len(categories)]
+            else:
+                print(f" - uns['{key}']: color count ({n_colors}) is less than category count ({len(categories)}) for obs column '{obs_col}' — skipping.")
+                continue
 
         order_key = obs_col + "_order"
         adata.uns[order_key] = categories
@@ -160,32 +175,26 @@ def validate_adata(adata, h5ad_file_path):
     return True
 
 
-def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
+def compare_obs_columns_and_update_adata(h5ad_file_path: Path, dataset_group: str = "scds"):
     """
-    
-    Compares the `obs` columns from supplied annotated AnnData (.h5ad) file against 
-    the standard list of columns provided in file batch17_universal_obs_columns.txt, 
-    and updates the AnnData object by adding the absent columns with NA values and dropping the new columns that are not.
-
-    The function:
-        - Reads the dataset's `obs` columns from the input .h5ad file.
-        - Compares the columns with the standard list and identifies if they match or differ, and if they differ, identifies the columns that are absent in the dataset with respect to the standard list and the columns that are new in the dataset with respect to the standard list.
-        - If the columns differ, adds the absent columns to the dataset with NA values and drops the new columns from the dataset that are not in the standard list, and checks if the columns are added/dropped successfully. 
-        - Prints out the initial and final number of columns in the dataset.
+    Compares the `obs` columns from the supplied .h5ad file against the standard list
+    for the given dataset group, then updates the AnnData object by adding absent columns
+    with NaN values and dropping extra columns not in the standard list.
 
     Parameters
     ----------
     h5ad_file_path : Path
-        Path to the AnnData annotated.h5ad file to be used for comparing the columns and updating the AnnData object.
+        Path to the AnnData annotated.h5ad file.
+    dataset_group : str
+        Dataset group determining which standard columns file to use ("scds" or "scrnalive").
 
     Returns
     -------
     adata : AnnData object
-        The AnnData object read from the provided .h5ad file, updated with columns to match the standard list.
-    
+        The AnnData object updated to match the standard column list.
     """
-
-    adata, columns_status, columns_absent, columns_new = utils.compare_obs_columns(h5ad_file_path)
+    columns_file = str(Path(__file__).parent / DATASET_GROUP_OBS_COLUMNS_FILE[dataset_group])
+    adata, columns_status, columns_absent, columns_new = utils.compare_obs_columns(h5ad_file_path, columns_file=columns_file)
     if columns_status == "differs":
         print("\nInitial number of columns =", len(list(adata.obs.columns)))
 
@@ -221,7 +230,64 @@ def compare_obs_columns_and_update_adata(h5ad_file_path: Path):
     return adata
 
 
-def create_tiledbsoma_expt(h5ad_file_path, adata):
+def compare_var_columns_and_update_adata(adata, dataset_group: str = "scds"):
+    """
+    Compares the `var` columns of the given AnnData object against the standard list
+    for the given dataset group, then updates the object in-place by adding absent columns
+    (numeric columns filled with np.nan, all others with pd.NA) and dropping extra columns.
+
+    Parameters
+    ----------
+    adata : AnnData
+        The AnnData object to update.
+    dataset_group : str
+        Dataset group determining which standard columns file to use ("scds" or "scrnalive").
+
+    Returns
+    -------
+    adata : AnnData
+        The updated AnnData object.
+    """
+    columns_file = str(Path(__file__).parent / DATASET_GROUP_VAR_COLUMNS_FILE[dataset_group])
+    columns_status, columns_absent, columns_new = utils.compare_var_columns(adata, columns_file=columns_file)
+    if columns_status == "differs":
+        print("\nInitial number of var columns =", len(list(adata.var.columns)))
+
+        if len(columns_absent) > 0:
+            numeric_absent = [col for col in columns_absent if col in VAR_NUMERIC_COLUMNS]
+            string_absent = [col for col in columns_absent if col not in VAR_NUMERIC_COLUMNS]
+
+            if string_absent:
+                adata.var[string_absent] = pd.DataFrame(pd.NA, index=adata.var_names, columns=string_absent)
+            if numeric_absent:
+                adata.var[numeric_absent] = pd.DataFrame(np.nan, index=adata.var_names, columns=numeric_absent)
+
+            if all(col in adata.var.columns for col in columns_absent):
+                print("\nAll var columns from the standard list are now present in the dataset after adding the absent columns.")
+            else:
+                print("\nSome var columns from the standard list are still missing in the dataset after adding the absent columns.")
+                missing = [col for col in columns_absent if col not in adata.var.columns]
+                print("\nMissing var columns:")
+                for col in missing:
+                    print(f" - {col}")
+
+        if len(columns_new) > 0:
+            adata.var.drop(columns=columns_new, errors="ignore", inplace=True)
+
+            if all(col not in adata.var.columns for col in columns_new):
+                print("\nAll extra var columns not in the standard list have been removed from the dataset.")
+            else:
+                print("\nSome extra var columns are still present after dropping.")
+                still_present = [col for col in columns_new if col in adata.var.columns]
+                print("\nVar columns still present:")
+                for col in still_present:
+                    print(f" - {col}")
+
+        print("\nFinal number of var columns =", len(list(adata.var.columns)))
+    return adata
+
+
+def create_tiledbsoma_expt(h5ad_file_path, adata, output_dir=None):
     """
     Creates a TileDB-SOMA experiment from the provided AnnData (.h5ad) file.
 
@@ -239,6 +305,10 @@ def create_tiledbsoma_expt(h5ad_file_path, adata):
     adata : AnnData object
         The AnnData object read from the provided .h5ad file, potentially updated with columns
 
+    output_dir : str, optional
+        Root directory under which experiments are written as {output_dir}/{batch}/{dataset}/tiledbsoma_expt.
+        Accepts local paths or S3 URIs. If not provided, experiments are written next to the input h5ad files.
+
     Returns
     -------
     tiledbsoma_expt_path : str
@@ -251,12 +321,18 @@ def create_tiledbsoma_expt(h5ad_file_path, adata):
         dataset_path = s3_parent(h5ad_str, levels=2)
         dataset = s3_name(dataset_path)
         batch = s3_name(s3_parent(dataset_path))
-        tiledbsoma_expt_base = dataset_path + "/tiledbsoma_expt"
+        if output_dir is not None:
+            tiledbsoma_expt_base = output_dir.rstrip("/") + "/" + batch + "/" + dataset + "/tiledbsoma_expt"
+        else:
+            tiledbsoma_expt_base = dataset_path + "/tiledbsoma_expt"
     else:
         dataset_path = Path(h5ad_file_path).parent.parent
         dataset = dataset_path.name
         batch = dataset_path.parent.name
-        tiledbsoma_expt_base = str(dataset_path / "tiledbsoma_expt")
+        if output_dir is not None:
+            tiledbsoma_expt_base = str(Path(output_dir) / batch / dataset / "tiledbsoma_expt")
+        else:
+            tiledbsoma_expt_base = str(dataset_path / "tiledbsoma_expt")
 
     print(f"\nBatch: {batch}, Dataset: {dataset}")
     print(f" - annotated.h5ad file to be used: {h5ad_file_path}")
@@ -305,7 +381,37 @@ def main():
         type=str,
         help="Path to the dataset directory that contains the AnnData annotated.h5ad file to be used for creating the TileDB-SOMA experiment. Accepts local paths or S3 URIs (s3://bucket/prefix/)."
     )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=None,
+        help="Root output directory. Experiments are written to {output}/{batch}/{dataset}/tiledbsoma_expt. Accepts local paths or S3 URIs. Defaults to writing next to the input h5ad files."
+    )
+    parser.add_argument(
+        "--dataset-group",
+        type=str,
+        default="scds",
+        choices=["scds", "scrnalive"],
+        help="Dataset group, which determines the standard obs/var column files used (default: scds)."
+    )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Path to log file. If provided, output is written to both stdout and the log file."
+    )
     args = parser.parse_args()
+
+    if args.log_file:
+        setup_logging(args.log_file)
+
+    try:
+        _main(args)
+    finally:
+        teardown_logging()
+
+
+def _main(args):
     dir_path = args.dir_path
     print(f"Given directory path: {dir_path}")
 
@@ -328,13 +434,14 @@ def main():
             raise FileNotFoundError(f"No annotated.h5ad file found in the given directory path.")
 
     for h5ad_file_path in h5ad_files:
-        adata = compare_obs_columns_and_update_adata(h5ad_file_path)
+        adata = compare_obs_columns_and_update_adata(h5ad_file_path, dataset_group=args.dataset_group)
+        adata = compare_var_columns_and_update_adata(adata, dataset_group=args.dataset_group)
         normalize_obsm(adata)
         map_uns_category_orders(adata)
         if not validate_adata(adata, h5ad_file_path):
             print(f" - Skipping conversion for {h5ad_file_path}.\n")
             continue
-        tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path, adata)
+        tiledbsoma_expt_path = create_tiledbsoma_expt(h5ad_file_path, adata, output_dir=args.output)
         print(f" - TileDB-SOMA experiment created at {tiledbsoma_expt_path}\n")
 
 if __name__ == "__main__":

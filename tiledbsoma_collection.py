@@ -30,12 +30,32 @@ import argparse
 from pathlib import Path
 import tiledbsoma as soma
 import utils
-from utils import is_s3_path, s3_parent, s3_name
+from utils import is_s3_path, s3_parent, s3_name, setup_logging, teardown_logging
+
+# Expected gene counts for ss2 datasets by organism
+SS2_EXPECTED_GENES = {
+    "human": 36522,
+    "mouse": 31992,
+}
+
+# Dataset-specific gene count exceptions for ss2 datasets
+SS2_DATASET_EXCEPTIONS = {
+    "GSE84465": 36601,
+}
 
 # Expected number of genes (vars) for cellranger-processed datasets
 CELLRANGER_EXPECTED_GENES = {
     "human": 36601,
     "mouse": 32285,
+    "cynomolgus monkey": 22316,
+    "rhesus monkey": 26530,
+}
+
+ORGANISM_COLLECTION_PREFIX = {
+    "human": "Human",
+    "mouse": "Mouse",
+    "cynomolgus monkey": "Cynomolgus",
+    "rhesus monkey": "Rhesus",
 }
 
 
@@ -53,7 +73,24 @@ def main():
         default="/wip/scds/delivery-zips/tiledbsoma_collections/",
         help="Path to the root collections directory. Accepts local paths or S3 URIs. Defaults to /wip/scds/delivery-zips/tiledbsoma_collections/."
     )
+    parser.add_argument(
+        "--log-file",
+        type=str,
+        default=None,
+        help="Path to log file. If provided, output is written to both stdout and the log file."
+    )
     args = parser.parse_args()
+
+    if args.log_file:
+        setup_logging(args.log_file)
+
+    try:
+        _main(args)
+    finally:
+        teardown_logging()
+
+
+def _main(args):
     dir_path = args.dir_path
     collections_path = args.collections_path.rstrip("/")
     print(f"Given TileDB-SOMA experiments directory path: {dir_path}")
@@ -124,13 +161,14 @@ def main():
             dataset_workflow = dataset_workflows[0].lower()
             print(f"Batch: {batch}, Dataset: {dataset}, Donor Organism: {donor_organism}, Dataset Workflow: {dataset_workflow}")
 
-            if donor_organism not in ["human", "mouse"]:
-                print(f" - Skipping {expt_name}: unrecognized donor_organism '{donor_organism}' (expected 'human' or 'mouse').")
+            if donor_organism not in ORGANISM_COLLECTION_PREFIX:
+                print(f" - Skipping {expt_name}: unrecognized donor_organism '{donor_organism}'.")
                 continue
+            organism_key = donor_organism
 
             # Map workflow → suffix
             workflow_map = {
-                "smartseq2": "ss2",
+                "smartseq": "ss2",
                 "cellranger": "10x",
             }
 
@@ -144,15 +182,25 @@ def main():
                 print(f" - Skipping {expt_name}: unrecognized dataset_workflow '{dataset_workflow}' (expected 'cellranger' or 'smartseq2').")
                 continue
 
-            # Gene count check for cellranger datasets
+            # Gene count check
+            actual_genes = expt.ms["RNA"].var.count
             if workflow_suffix == "10x":
-                expected_genes = CELLRANGER_EXPECTED_GENES[donor_organism]
-                actual_genes = expt.ms["RNA"].var.count
+                expected_genes = CELLRANGER_EXPECTED_GENES[organism_key]
                 if actual_genes != expected_genes:
-                    print(f" - Skipping {expt_name}: gene count mismatch for {donor_organism} cellranger dataset. Expected {expected_genes}, got {actual_genes}.")
+                    print(f" - Skipping {expt_name}: gene count mismatch for {organism_key} cellranger dataset. Expected {expected_genes}, got {actual_genes}.")
+                    continue
+            elif workflow_suffix == "ss2":
+                if dataset in SS2_DATASET_EXCEPTIONS:
+                    expected_genes = SS2_DATASET_EXCEPTIONS[dataset]
+                elif organism_key in SS2_EXPECTED_GENES:
+                    expected_genes = SS2_EXPECTED_GENES[organism_key]
+                else:
+                    expected_genes = None
+                if expected_genes is not None and actual_genes != expected_genes:
+                    print(f" - Skipping {expt_name}: gene count mismatch for {organism_key} ss2 dataset. Expected {expected_genes}, got {actual_genes}.")
                     continue
 
-            collection_name = f"Human_{workflow_suffix}" if donor_organism == "human" else f"Mouse_{workflow_suffix}"
+            collection_name = f"{ORGANISM_COLLECTION_PREFIX[organism_key]}_{workflow_suffix}"
 
             if is_s3_path(collections_path):
                 collection_uri = f"{collections_path}/{collection_name}"
