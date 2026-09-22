@@ -76,3 +76,6 @@ Examples:
 
 ## batch17_universal_obs_columns.txt
 This file contains the standard list of obs columns expected in an anndata object in an h5ad file. Before creating tiledb-soma experiments, the new datasets are compared to this list and any columns that are absent are in the new dataset are added and filled with NA and any extra columns that are not present in this list are removed.
+
+## Related repository
+Gene expression analysis across human TileDB-SOMA collections stored in AWS S3 buckets - https://github.com/ranchobiosciences/scds-gene-expression-analysis
