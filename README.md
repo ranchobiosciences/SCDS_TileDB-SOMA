@@ -44,6 +44,9 @@ Examples:
 - For adding one TileDB-SOMA experiment: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/GSE76312/tiledbsoma_expt`
 - For adding multiple TileDB-SOMA experiments under a batch: `python tiledbsoma_collection.py /wip/scds/delivery-zips/batch14/`
 
+**Note — not all experiments are added to collections:**
+Only datasets that were processed from raw FASTQ files through the standard SCDS pipeline are added to the collections. Datasets that started from **author-provided count matrices** (i.e., not reprocessed from FASTQ) are intentionally **excluded from the collections**, because their upstream processing and QC are not consistent with the pipeline-processed datasets. These excluded experiments still exist as TileDB-SOMA stores under `tiledb-experiments/`, but they are not referenced by any collection and therefore do not appear in the collection manifests (or in any per-collection metrics derived from them).
+
 ## anndata_compare_columns.py
 This script compares the `obs` columns from a supplied annotated AnnData (.h5ad) file against the standard list of columns provided in file batch17_universal_obs_columns.txt. It prints out column differences.
 
