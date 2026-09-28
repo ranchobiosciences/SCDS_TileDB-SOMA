@@ -38,6 +38,7 @@ Created: 2026-04-21
 
 
 import argparse
+import numpy as np
 import pandas as pd
 import tiledbsoma as soma
 import utils
@@ -98,6 +99,7 @@ def main():
             print(f" - Reading obs for {expt_name}...")
             obs_df = expt.obs.read().concat().to_pandas()
             obs_df = obs_df.drop(columns=["soma_joinid"], errors="ignore")
+            obs_df = obs_df.replace("NA", np.nan)
 
             n_cells = len(obs_df)
             n_genes = expt.ms["RNA"].var.count
