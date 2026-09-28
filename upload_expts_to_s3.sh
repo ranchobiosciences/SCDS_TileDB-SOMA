@@ -2,15 +2,65 @@
 # Upload TileDB-SOMA experiments to S3, skipping any dataset whose
 # tiledbsoma_expt/ prefix already exists in the bucket.
 #
-# Usage:  ./upload_expts_to_s3.sh batch4 [batch3 ...]
-#         DRY_RUN=1 ./upload_expts_to_s3.sh batch4    # show what would happen
+# Usage:  ./upload_expts_to_s3.sh --group <scds|scrnalive> <batch> [batch ...]
+#
+# Examples:
+#   ./upload_expts_to_s3.sh --group scds batch20
+#   ./upload_expts_to_s3.sh --group scrnalive batch3 batch4
+#   DRY_RUN=1 ./upload_expts_to_s3.sh --group scds batch20   # show what would happen
+#
+# --group is required: the two dataset groups live in different buckets and
+# under different local roots, so defaulting either way risks writing to the
+# wrong place.
 set -u
 
-LOCAL_ROOT=/data/scrnalive_tiledb
-S3_ROOT=s3://rancho-scrna-live/tiledb-experiments
 DRY_RUN=${DRY_RUN:-0}
+GROUP=""
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --group) GROUP=${2:-}; shift 2 ;;
+        --group=*) GROUP=${1#*=}; shift ;;
+        -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+        -*) echo "Unknown option: $1" >&2; exit 2 ;;
+        *) break ;;
+    esac
+done
+
+case "$GROUP" in
+    scds)
+        LOCAL_ROOT=/data/tiledb
+        S3_ROOT=s3://rancho-scds-collections/tiledb-experiments
+        ;;
+    scrnalive)
+        LOCAL_ROOT=/data/scrnalive_tiledb
+        S3_ROOT=s3://rancho-scrna-live/tiledb-experiments
+        ;;
+    "")
+        echo "Error: --group is required (scds or scrnalive)." >&2
+        exit 2
+        ;;
+    *)
+        echo "Error: unknown group '$GROUP' (expected scds or scrnalive)." >&2
+        exit 2
+        ;;
+esac
+
+if [ $# -eq 0 ]; then
+    echo "Error: no batches given. Usage: $0 --group <scds|scrnalive> <batch> [batch ...]" >&2
+    exit 2
+fi
+
+echo "Group:      $GROUP"
+echo "Local root: $LOCAL_ROOT"
+echo "S3 root:    $S3_ROOT"
 
 for batch in "$@"; do
+    if [ ! -d "$LOCAL_ROOT/$batch" ]; then
+        echo "WARN  skipping $batch: $LOCAL_ROOT/$batch does not exist"
+        continue
+    fi
+
     logdir=$LOCAL_ROOT/${batch}_upload_logs
     mkdir -p "$logdir"
     echo "########## $batch ($(date '+%F %T')) ##########"
