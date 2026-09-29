@@ -41,6 +41,7 @@ SS2_EXPECTED_GENES = {
 # Dataset-specific gene count exceptions for ss2 datasets
 SS2_DATASET_EXCEPTIONS = {
     "GSE84465": 36601,
+    "GSE189346_snRNAseq": 36553,
 }
 
 # Expected number of genes (vars) for cellranger-processed datasets
